@@ -10,6 +10,11 @@ const q=(s,p=[])=>pool.query(s,p).then(r=>r.rows);
 const auth=(req,res,next)=>req.session.user?next():res.status(401).json({error:"Please log in."});
 const admin=(req,res,next)=>req.session.user?.role==="admin"?next():res.status(403).json({error:"Admin access required."});
 const view=u=>({id:u.id,email:u.email,role:u.role,paid:u.paid,subscription_status:u.subscription_status});
+async function initDatabase(){
+  await q("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'user',paid BOOLEAN NOT NULL DEFAULT FALSE,subscription_status TEXT NOT NULL DEFAULT 'inactive',paystack_customer_code TEXT,paystack_subscription_code TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  await q("CREATE TABLE IF NOT EXISTS tracks (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,title TEXT NOT NULL,prompt TEXT NOT NULL,genre TEXT NOT NULL,vibe TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'generating',provider_id TEXT,audio_url TEXT,duration INTEGER,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  await q("CREATE TABLE IF NOT EXISTS payments (id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,reference TEXT UNIQUE NOT NULL,amount INTEGER NOT NULL,currency TEXT NOT NULL,status TEXT NOT NULL,raw JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+}
 async function ensureAdmin(){if(!process.env.DATABASE_URL)return;const admins=[[process.env.ADMIN_EMAIL,process.env.ADMIN_PASSWORD],[process.env.ADMIN2_EMAIL,process.env.ADMIN2_PASSWORD]];for(const [email,password] of admins){if(!email||!password)continue;const h=await bcrypt.hash(password,12);await q("INSERT INTO users(email,password_hash,role,paid,subscription_status) VALUES($1,$2,'admin',TRUE,'admin') ON CONFLICT(email) DO UPDATE SET password_hash=EXCLUDED.password_hash,role='admin',paid=TRUE,subscription_status='admin'",[email.trim().toLowerCase(),h])}}
 app.get("/health",async(_req,res)=>{try{await q("SELECT 1");res.json({ok:true,app:"BEATLYNXAI",version:"1.0.0"})}catch(e){res.status(503).json({ok:false})}});
 app.post("/api/auth/register",async(req,res)=>{try{const email=String(req.body.email||"").trim().toLowerCase(),password=String(req.body.password||"");if(!/^\S+@\S+\.\S+$/.test(email)||password.length<8)return res.status(400).json({error:"Use a valid email and a password of at least 8 characters."});if((await q("SELECT id FROM users WHERE email=$1",[email])).length)return res.status(409).json({error:"An account with that email already exists."});const h=await bcrypt.hash(password,12),u=(await q("INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING *",[email,h]))[0];req.session.user=view(u);res.json({user:req.session.user})}catch(e){res.status(500).json({error:"Unable to create account."})}});
@@ -25,5 +30,5 @@ app.post("/api/payments/webhook",async(req,res)=>{const sig=crypto.createHmac("s
 app.get("/api/admin/users",admin,async(_req,res)=>res.json({users:await q("SELECT id,email,role,paid,subscription_status,created_at FROM users ORDER BY created_at DESC")}));
 app.get("/api/admin/tracks",admin,async(_req,res)=>res.json({tracks:await q("SELECT t.*,u.email FROM tracks t JOIN users u ON u.id=t.user_id ORDER BY t.created_at DESC")}));
 app.get("*",(_req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
-ensureAdmin().catch(console.error);
+initDatabase().then(()=>ensureAdmin()).catch(console.error);
 app.listen(PORT,"0.0.0.0",()=>console.log("BEATLYNXAI running on port "+PORT));
