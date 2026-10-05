@@ -1,0 +1,9 @@
+{
+  "appId": "com.beatlynxai.app",
+  "appName": "BEATLYNXAI",
+  "webDir": "public",
+  "server": {
+    "url": "https://beatlynxai-web-production.up.railway.app",
+    "cleartext": false
+  }
+}
