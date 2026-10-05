@@ -1,1 +1,19 @@
-{"name":"BEATLYNXAI","short_name":"BEATLYNXAI","start_url":"/","display":"standalone","background_color":"#070811","theme_color":"#080912","description":"AI music creation studio","icons":[]}
+{
+  "name": "BEATLYNXAI — AI Music Studio",
+  "short_name": "BEATLYNXAI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070811",
+  "theme_color": "#080912",
+  "description": "Create original AI music from your ideas.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
